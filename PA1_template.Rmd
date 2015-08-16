@@ -7,19 +7,80 @@ output:
 
 
 ## Loading and preprocessing the data
-
+```{r}
+if(!exists("activity.csv"))unzip("activity.zip")
+activity_data <- read.csv("activity.csv",na.strings="NA")
+```
 
 
 ## What is mean total number of steps taken per day?
+Making a histogram of the total number of steps taken each day, ignoring NA values
+```{r}
+total<-tapply(activity_data$steps,activity_data$date,sum)
+barplot(total)
+```
 
-
+The **mean** and the **median** of total number of steps taken per day
+```{r totalstepsmean}
+meanNumber<-tapply(activity_data$steps,activity_data$date,mean)
+medianNumber<-tapply(activity_data$steps,activity_data$date,median)
+meanNumber
+medianNumber
+```
 
 ## What is the average daily activity pattern?
+Time series plot of 5-minute interval and the average number of steps taken, avergaed across all days
 
-
-
+```{r}
+avgdata<-aggregate(x=list(steps=activity_data$steps),by=list(interval=activity_data$interval),FUN = mean, na.rm = T)
+plot(avgdata$interval,avgdata$step,type="l")
+```
+The maximun number of steps on 5-minute interval on average across all the days
+```{r maxStep}
+maxSteps <- avgdata[which.max(avgdata$steps),1]
+```
 ## Imputing missing values
+sum of missing
+```{r}
+sum(is.na(activity_data))
+```
+Replacing strategy is to replace the NA with the mean of the interval for that day
+```{r}
+rnwm <- function(steps, interval){
+  result <- NA
+  if(!is.na(steps))
+    result<-c(steps)
+  else
+    result<-(avgdata[avgdata$interval==interval,"steps"])
+  result
+}
+activity_data.replaced <- activity_data
+activity_data$steps <- mapply(rnwm, activity_data.replaced$steps, activity_data.replaced$interval)
+activity_data.replaced.totalsteps <- tapply(activity_data.replaced$steps, activity_data.replaced$date, FUN=sum)
 
-
-
+```
+Plotting histogram on the newly created dataset, reporting the **mean** and the **median** total number of steps taken each day. 
+```{r}
+barplot(activity_data.replaced.totalsteps)
+#mean
+mean(activity_data.replaced.totalsteps)
+#median
+median(activity_data.replaced.totalsteps)
+```
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+weekday <- function(date){
+  day<- weekdays(date)
+  if (day %in% c("星期一","星期二","星期三","星期四","星期五"))
+    return ("weekday")
+  else if(day %in% c("星期六","星期日"))
+    return("weekend")
+  else stop("invalid date")
+}
+activity_data.replaced$date <- as.Date(activity_data.replaced$date)
+activity_data.replaced$day <- sapply(activity_data.replaced$date,FUN=weekday)
+avgwd <- aggregate(steps~interval+day,data = activity_data.replaced, mean)
+par(mfrow=c(2,1))
+with(subset(avgwd, day == "weekday"), plot(interval, steps,type = "l",col="blue",main="weekday"))
+with(subset(avgwd, day == "weekend"), plot(interval, steps,type = "l",col="blue",main="weekend"))
+```
